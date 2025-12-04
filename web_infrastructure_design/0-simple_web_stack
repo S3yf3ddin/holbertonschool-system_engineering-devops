@@ -1,0 +1,100 @@
+One-Server Web Infrastructure for www.foobar.com
+1. User Access
+
+When a user wants to access the website:
+
+The user opens a browser and types www.foobar.com.
+
+The browser sends a DNS query to find the IP address of www.foobar.com.
+
+DNS responds with the server IP: 8.8.8.8.
+
+The browser sends an HTTP/HTTPS request to the server.
+
+2. DNS and Domain Name
+
+Domain Name: foobar.com is a human-readable address for the website.
+
+DNS Record: www is an A record pointing www.foobar.com → 8.8.8.8.
+
+Role: Converts a readable domain into a machine-readable IP address so the browser can reach the server.
+
+3. Server and Components
+
+Server: A physical or virtual machine that handles requests from users.
+
+Inside the server:
+
+Web Server (Nginx):
+
+Receives HTTP/HTTPS requests from users.
+
+Serves static files (images, CSS, JavaScript).
+
+Forwards dynamic requests to the application server.
+
+Application Server:
+
+Runs the website code base.
+
+Processes requests, applies business logic, and generates dynamic content.
+
+Application Files (Code Base):
+
+All scripts and logic that make the website function.
+
+Database (MySQL):
+
+Stores data such as users, posts, products, etc.
+
+Application server queries the database to retrieve or save data.
+
+4. Request Flow
+
+Browser → HTTP request → Nginx (Web Server)
+
+Nginx → Application Server
+
+Application Server → MySQL Database (if needed)
+
+Application Server → Response to Nginx
+
+Nginx → HTTP Response → Browser
+
+Communication: HTTP/HTTPS over TCP/IP.
+
+5. Infrastructure Diagram (Text Version)
+User Browser
+     |
+     v
+www.foobar.com (DNS A record → 8.8.8.8)
+     |
+     v
++-------------------+
+|      Server       |
+|-------------------|
+|   Nginx Web Server|
+|        |          |
+|  Application Server|
+|        |          |
+|  Application Code |
+|        |          |
+|     MySQL DB      |
++-------------------+
+     |
+     v
+Back to User Browser (HTTP Response)
+
+6. Issues with this Infrastructure
+
+SPOF (Single Point of Failure):
+
+If the server fails, the website goes offline.
+
+Downtime during Maintenance:
+
+Updating code may require restarting the web or application server.
+
+Scalability Limitations:
+
+A single server cannot handle very high traffic; performance may drop.
