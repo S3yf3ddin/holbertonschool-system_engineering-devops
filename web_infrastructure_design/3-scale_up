@@ -1,0 +1,63 @@
+Scale Up Web Infrastructure Design
+
+Infrastructure Diagram
+
+graph TD
+    User((User)) -- HTTPS Request --> Internet
+    Internet -- [www.foobar.com](https://www.foobar.com) --> LB_Cluster
+    
+    subgraph LB_Cluster [Load Balancer Cluster (HAProxy)]
+        LB1[Load Balancer 1 (Active)]
+        LB2[Load Balancer 2 (Passive)]
+        LB1 -. Keepalived .-> LB2
+    end
+
+    subgraph Web_Tier [Web Server Layer]
+        Web1[Web Server 1 (Nginx)]
+    end
+
+    subgraph App_Tier [Application Server Layer]
+        App1[Application Server 1]
+    end
+
+    subgraph DB_Tier [Database Layer]
+        DB_Primary[(MySQL Primary)]
+    end
+
+    LB1 --> Web1
+    LB2 -.-> Web1
+    
+    Web1 --> App1
+    App1 --> DB_Primary
+
+    %% Note: In a real scaled scenario, each tier would have multiple nodes (e.g., Web2, App2, DB Replica)
+    %% The diagram represents the logical splitting of components onto their own servers.
+
+
+Specifics of the Infrastructure
+
+Why add these additional elements?
+
+Load Balancer Cluster (Adding a second HAProxy):
+
+Reason: To eliminate the Load Balancer as a Single Point of Failure (SPOF). By adding a second Load Balancer configured in a cluster (typically Active-Passive using software like Keepalived), we ensure that if the primary Load Balancer crashes, traffic is automatically rerouted to the backup Load Balancer, maintaining site availability.
+
+Splitting Components (Web, App, DB) into their own servers:
+
+Reason:
+
+Resource Isolation: Different components have different resource needs. Databases are disk I/O and RAM intensive; Application servers are CPU intensive; Web servers are connection/bandwidth intensive. Separating them prevents one component (e.g., a heavy DB query) from starving the others of resources.
+
+Independent Scaling: We can scale layers independently. If traffic increases, we might need more Web Servers but not necessarily more Database power. Separation allows us to add resources exactly where they are needed.
+
+Security: It allows for stricter security policies. For example, the Database server implies no direct external access and can be locked down to only accept connections from the Application Server.
+
+Application Server vs. Web Server
+
+Web Server (e.g., Nginx, Apache):
+
+Its primary role is to handle the HTTP protocol. It serves static content (HTML, CSS, Images, JavaScript) directly to the user. It also acts as a Reverse Proxy/Load Balancer to forward requests for dynamic content to the Application Server. It is optimized for handling high concurrency of incoming connections.
+
+Application Server (e.g., Gunicorn, Tomcat):
+
+Its primary role is to generate dynamic content. It executes the business logic (code base), processes user inputs, and interacts with the database to construct the HTML that the Web Server sends back to the client. It handles the "thinking" part of the application.
