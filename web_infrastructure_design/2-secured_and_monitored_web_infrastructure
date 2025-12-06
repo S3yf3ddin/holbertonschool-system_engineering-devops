@@ -1,0 +1,102 @@
+Secured and Monitored Web Infrastructure Design
+
+Infrastructure Diagram
+
+graph TD
+    User((User)) -- HTTPS Request --> Internet
+    Internet -- [www.foobar.com](https://www.foobar.com) --> LB[Load Balancer (HAProxy)]
+    
+    subgraph External_Service [External Services]
+        MonitorService[Monitoring Service (e.g., Datadog/Sumo Logic)]
+    end
+
+    subgraph Server_1 [Load Balancer Server]
+        Firewall1[Firewall]
+        LB
+        SSL[SSL Certificate]
+        Agent1[Monitoring Agent]
+        
+        Firewall1 --> LB
+        LB -.-> Agent1
+        Agent1 -.-> MonitorService
+    end
+
+    subgraph Server_2 [Application Server 1]
+        Firewall2[Firewall]
+        Nginx1[Web Server (Nginx)]
+        AppServer1[Application Server]
+        AppFiles1[Application Files]
+        DB_Primary[(MySQL Primary)]
+        Agent2[Monitoring Agent]
+        
+        Firewall2 --> Nginx1
+        Nginx1 --> AppServer1
+        AppServer1 --> AppFiles1
+        AppServer1 -- Read/Write --> DB_Primary
+        Agent2 -.-> MonitorService
+    end
+
+    subgraph Server_3 [Application Server 2]
+        Firewall3[Firewall]
+        Nginx2[Web Server (Nginx)]
+        AppServer2[Application Server]
+        AppFiles2[Application Files]
+        DB_Replica[(MySQL Replica)]
+        Agent3[Monitoring Agent]
+        
+        Firewall3 --> Nginx2
+        Nginx2 --> AppServer2
+        AppServer2 --> AppFiles2
+        AppServer2 -- Read Only --> DB_Replica
+        Agent3 -.-> MonitorService
+    end
+
+    LB -- Decrypted Traffic (HTTP) --> Firewall2
+    LB -- Decrypted Traffic (HTTP) --> Firewall3
+    
+    DB_Primary -- Replication --> DB_Replica
+
+
+Specifics of the Infrastructure
+
+Why add these additional elements?
+
+Firewalls: Added to 3 servers to secure the network. They act as a barrier between the trusted internal network and untrusted external networks. They filter incoming and outgoing traffic based on a set of security rules, blocking unauthorized access (e.g., blocking all ports except 80, 443, and 22).
+
+SSL Certificate: Added to serve the website over HTTPS (Hypertext Transfer Protocol Secure). It encrypts the data transmitted between the user's browser and the server (specifically the Load Balancer in this design), ensuring data privacy and integrity. This prevents Man-in-the-Middle attacks.
+
+Monitoring Clients (Agents): Added to each server to collect data about the system's performance and health. These agents send metrics (CPU usage, memory, disk I/O, network traffic) and logs to a centralized Monitoring Service. This allows administrators to visualize the infrastructure's state, set up alerts for anomalies, and troubleshoot issues proactively.
+
+Firewall Configuration:
+
+Firewalls are configured to deny all incoming traffic by default and only allow specific necessary traffic.
+
+Load Balancer Firewall: Allows HTTP (Port 80), HTTPS (Port 443), and SSH (Port 22).
+
+Application Server Firewalls: Allow HTTP traffic only from the Load Balancer's IP and SSH traffic from the admin network.
+
+SSL Termination:
+
+In this design, SSL is terminated at the Load Balancer. This means the Load Balancer decrypts the incoming HTTPS traffic and forwards it as plain HTTP to the application servers. This offloads the CPU-intensive encryption/decryption work from the application servers.
+
+Monitoring Implementation:
+
+The agents collect QPS (Queries Per Second) for the web servers, error rates (500/400 errors), and hardware utilization. The external Monitoring Service aggregates this data into dashboards.
+
+Issues with this Infrastructure
+
+SSL Termination at Load Balancer:
+
+Issue: While efficient, terminating SSL at the Load Balancer means the traffic between the Load Balancer and the Application Servers is unencrypted (HTTP). If an attacker manages to breach the internal network or the firewall, they can intercept sensitive data moving between these servers.
+
+Single Write Master (MySQL Primary):
+
+Issue: We still have only one server (the Primary) capable of accepting Write operations. If the Primary database goes down, the application cannot add or update any data (users cannot sign up, post, or buy), resulting in partial unavailability. The Replica cannot simply accept writes without reconfiguration.
+
+Servers with All Components:
+
+Issue: The Application Servers are hosting the Web Server, Application Server, and the Database on the same machine.
+
+Resource Contention: If the database consumes all the RAM or CPU, the application server and web server will slow down or crash, and vice versa. They fight for the same resources.
+
+Scaling Difficulty: You cannot scale components independently. If you need more DB storage but your CPU is fine, you still have to buy a whole new server with CPU/RAM you don't need just to get the storage.
