@@ -1,0 +1,89 @@
+Distributed Web Infrastructure Design
+
+Infrastructure Diagram
+
+graph TD
+    User((User)) -- HTTP Request --> Internet
+    Internet -- [www.foobar.com](https://www.foobar.com) --> LB[Load Balancer (HAProxy)]
+    
+    subgraph Server_1 [Load Balancer Server]
+        LB
+    end
+
+    subgraph Server_2 [Application Server 1]
+        Nginx1[Web Server (Nginx)]
+        AppServer1[Application Server]
+        AppFiles1[Application Files]
+        DB_Primary[(MySQL Primary)]
+        
+        Nginx1 --> AppServer1
+        AppServer1 --> AppFiles1
+        AppServer1 -- Read/Write --> DB_Primary
+    end
+
+    subgraph Server_3 [Application Server 2]
+        Nginx2[Web Server (Nginx)]
+        AppServer2[Application Server]
+        AppFiles2[Application Files]
+        DB_Replica[(MySQL Replica)]
+        
+        Nginx2 --> AppServer2
+        AppServer2 --> AppFiles2
+        AppServer2 -- Read Only --> DB_Replica
+    end
+
+    LB -- Round Robin Distribution --> Nginx1
+    LB -- Round Robin Distribution --> Nginx2
+    
+    DB_Primary -- Replication --> DB_Replica
+
+
+Specifics of the Infrastructure
+
+Why add these additional elements?
+
+Load Balancer (HAProxy): Added to distribute incoming traffic across multiple servers. This prevents any single server from becoming a bottleneck and ensures that if one application server goes down, traffic is routed to the remaining healthy server, increasing availability.
+
+Second Application Server: Added to provide redundancy and increased processing capacity. It allows the infrastructure to handle more concurrent users and survive the failure of one application server.
+
+Load Balancer Distribution Algorithm:
+
+The load balancer is configured with the Round Robin algorithm.
+
+How it works: It works by forwarding client requests to each server in the pool in turns. For example, Request 1 goes to Server A, Request 2 goes to Server B, Request 3 goes to Server A, and so on. It ensures a roughly equal distribution of traffic without considering the current load or response time of the servers.
+
+Active-Active vs. Active-Passive Setup:
+
+This infrastructure depicts an Active-Active setup for the application servers, as the Load Balancer distributes traffic to both servers, and both are handling requests simultaneously.
+
+Difference:
+
+Active-Active: All servers in the cluster are active and handling traffic. This maximizes resource utilization and throughput.
+
+Active-Passive: At least one server is active (primary) while others are in standby mode (passive). The passive server only takes over if the active server fails. This is often used for failover rather than load distribution.
+
+Database Primary-Replica (Master-Slave) Cluster:
+
+How it works: In this cluster, one database server is designated as the Primary (Master) and the other as the Replica (Slave). The Primary server handles all data modifications. The Replica server keeps a copy of the data by replicating changes made to the Primary.
+
+Difference between Primary and Replica:
+
+Primary Node: Responsible for all Write operations (INSERT, UPDATE, DELETE). It is the source of truth.
+
+Replica Node: Responsible for Read operations (SELECT). It receives data updates from the Primary to stay synchronized. By offloading read traffic to the Replica, the system can handle more read-heavy workloads.
+
+Issues with this Infrastructure
+
+SPOF (Single Point of Failure):
+
+The Load Balancer: We have added redundancy for the application servers, but the Load Balancer itself is now a Single Point of Failure. If the server hosting HAProxy crashes, the entire website becomes unreachable, regardless of whether the application servers are healthy.
+
+Security Issues:
+
+No Firewall: There is no firewall depicted to filter incoming traffic or block unauthorized access ports. The servers are exposed to potential attacks on any open port.
+
+No HTTPS: The traffic is transmitted over HTTP (as indicated in the user journey). This means data is sent in plain text, making it vulnerable to interception (Man-in-the-Middle attacks) and data theft.
+
+No Monitoring:
+
+There is no monitoring system in place to track the health of the servers (CPU usage, RAM, disk space) or the application (error rates, response times). Without monitoring, administrators will not be alerted to issues until the website goes down or users complain.
